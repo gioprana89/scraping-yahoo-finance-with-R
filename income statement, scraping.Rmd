@@ -1,0 +1,853 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+```{r}
+
+library(rvest)
+library(stringr)
+library(magrittr)
+
+
+library(pdfetch)
+
+library(shiny)
+
+library(ggplot2)
+
+library(DT)
+
+library(pdfetch)
+library(rvest)
+library(stringr)
+library(magrittr)
+
+library(shinycssloaders)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+#########Income Statement / Financial
+#########Income Statement / Financial
+#########Income Statement / Financial
+
+
+
+```{r}
+
+ get_var = c("Total Revenue","Net Income Common Stockholders","Basic EPS", "Basic Average Shares")
+
+sektor = c("Properties & Real Estate")
+
+papan = c("Pengembangan")
+
+```
+
+
+
+Nama perusahaan financials sektor Healthcare
+
+
+
+
+
+```{r}
+
+company = c(
+  
+"AMAN.JK",
+"ASPI.JK",
+"ATAP.JK",
+"BBSS.JK",
+"BCIP.JK",
+"BKDP.JK",
+"CBPE.JK",
+"CSIS.JK",
+"DUTI.JK",
+"EMDE.JK",
+"FMII.JK",
+"GRIA.JK",
+"HOMI.JK",
+"INDO.JK",
+"INPP.JK",
+"KOCI.JK",
+"LPLI.JK",
+"MKPI.JK",
+"MPRO.JK",
+"MTSM.JK",
+"NIRO.JK",
+"OMRE.JK",
+"POLI.JK",
+"POLL.JK",
+"PURI.JK",
+"RISE.JK",
+"SAGE.JK",
+"SATU.JK",
+"SMDM.JK",
+"SWID.JK",
+"UANG.JK",
+"URBN.JK",
+"VAST.JK"
+
+
+
+  
+ 
+            )
+
+
+simpan_dframe = 0
+
+
+
+
+for(k in 1 :  length(company) )
+{
+      
+  
+  cat(sprintf("%s\n\n", company[k]))    
+  
+  
+      alamat <- paste0('https://finance.yahoo.com/quote/',company[k],'/financials?p=',company[k])
+      
+      page <- read_html(alamat)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+        r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+        df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\t{1,2}/\t{1,2}/\t{4}')  
+      headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+    
+      
+    
+
+      if(length(df) < 5)
+      {
+        print(length(df))
+        cat(sprintf("%s Tidak Dapat Discraping, Karena Data Tidak Lengkap\n\n", company[k]))
+        next
+      }
+
+ 
+      print(length(df))
+      cat(sprintf("%s Dapat Discraping, Karena Data Lengkap\n\n", company[k]))
+      
+     names(df) <- headers
+      
+    
+  hasil = df
+
+#############
+      
+      all_var = hasil[,1]
+      indeks = all_var %in% get_var
+      
+      indeks = which(indeks == TRUE )
+      
+      
+      hasil2 = hasil[c(indeks),]
+      
+      
+     
+      
+      nama = get_var
+      
+     
+      
+      hasil2 = hasil2[-c(1)]
+      
+      
+       colnames(hasil2) = c("TTM","2022","2021","2020")
+      
+      
+      putar_data <- as.data.frame(t(as.matrix(hasil2)))
+      
+    
+      
+      perusahaan = rep(company[k],  length(  putar_data[,1]   )    )
+
+     
+      putar_data = data.frame(putar_data, perusahaan)
+      
+      Waktu = rownames(putar_data)
+      
+      
+      
+      
+      Sector = rep(sektor,  length(  putar_data[,1]   )    )
+      Board = rep(papan,  length(  putar_data[,1]   )    )
+      
+      
+      
+      putar_data = data.frame(putar_data, Waktu, sektor, Board)
+      
+        colnames(putar_data) = c(nama, "Perusahaan", "Waktu", "Sektor", "Papan")
+
+
+        
+        if(k == 1)
+        {
+          simpan_dframe = putar_data
+        }
+        
+        if(k > 1)
+        {
+          simpan_dframe = rbind(simpan_dframe, putar_data)
+        }
+
+}
+
+
+
+rownames(simpan_dframe) = NULL
+
+simpan_dframe
+
+```
+
+
+#Menghapus TTM
+```{r}
+
+simpan_dframe2 = simpan_dframe
+
+TTM <- simpan_dframe2[,c("Waktu")]
+
+TTM <- as.vector(TTM)
+
+indeks <- TTM %in% c("2020","2021", "2022")
+
+
+indeks = which(indeks == TRUE)
+
+simpan_dframe2 = simpan_dframe2[c(indeks),]
+
+simpan_dframe2
+```
+
+
+
+
+
+```{r}
+
+  X = simpan_dframe2
+      
+      X = as.data.frame(X)
+      
+      wb <- openxlsx::createWorkbook()
+      
+      
+      hs1 <- openxlsx::createStyle(fgFill = "#DCE6F1", halign = "CENTER", textDecoration = "italic",
+                                   border = "Bottom")
+      
+      
+      hs2 <- openxlsx::createStyle(fontColour = "#ffffff", fgFill = "#4F80BD",
+                                   halign = "center", valign = "center", textDecoration = "bold",
+                                   border = "TopBottomLeftRight")
+      
+      openxlsx::addWorksheet(wb, "Result", gridLines = TRUE)
+      
+      openxlsx::writeDataTable(wb, "Result", X, rowNames = TRUE, startRow = 2, startCol = 2, tableStyle = "TableStyleMedium21")
+      
+      
+      
+      openxlsx::openXL(wb)
+      
+    
+    
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+#########Balance Sheet
+#########Balance Sheet
+#########Balance Sheet
+#########Balance Sheet
+
+
+
+
+```{r}
+
+ #get_var = c("Total Assets", "Total Liabilities Net Minority Interest", "Total Equity Gross Minority Interest", "Total Capitalization", "Common Stock Equity", "Net Tangible Assets", "Working #Capital", "Invested Capital", "Total Debt", "Share Issued")
+
+
+ get_var = c("Total Assets", "Total Liabilities Net Minority Interest", "Total Equity Gross Minority Interest", "Share Issued", "Common Stock Equity", "Net Tangible Assets", "Tangible Book Value")
+
+sektor = c("Technology")
+
+papan = c("Development")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+company = c(
+
+  
+"AWAN.JK",
+"CYBR.JK",
+"DCII.JK",
+"DIVA.JK",
+"DMMX.JK",
+"EDGE.JK",
+"ELIT.JK",
+"GLVA.JK",
+"IOTF.JK",
+"IRSX.JK",
+"JATI.JK",
+"KIOS.JK",
+"LUCK.JK",
+"NFCX.JK",
+"TECH.JK",
+"TFAS.JK",
+"TRON.JK",
+"UVCR.JK",
+"WIRG.JK",
+"ZYRX.JK"
+
+  
+
+
+
+)
+
+
+simpan_dframe = 0
+
+
+for(k in 1 :  length(company) )
+{
+      
+  
+  cat(sprintf("%s\n\n", company[k]))    
+  
+  
+      alamat <- paste0('https://finance.yahoo.com/quote/',company[k],'/balance-sheet?p=',company[k])
+      
+      page <- read_html(alamat)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+        r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+        df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\t{1,2}/\t{1,2}/\t{4}')  
+      headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+    
+      
+      
+      
+      
+      if(length(df) < 4)
+      {
+        print(length(df))
+        cat(sprintf("%s Tidak Dapat Discraping, Karena Data Tidak Lengkap\n\n", company[k]))
+        next
+      }
+
+ 
+      print(length(df))
+      cat(sprintf("%s Dapat Discraping, Karena Data Lengkap\n\n", company[k]))
+      
+      
+      
+      
+      
+      
+     names(df) <- headers
+      
+      hasil = df
+
+#############
+      
+      all_var = hasil[,1]
+      indeks = all_var %in% get_var
+      
+      indeks = which(indeks == TRUE )
+      
+      
+      hasil2 = hasil[c(indeks),]
+      
+      
+     
+      
+      nama = get_var
+      
+     
+      
+      hasil2 = hasil2[-c(1)]
+      
+      
+       colnames(hasil2) = c("2022","2021","2020")
+      
+      
+      putar_data <- as.data.frame(t(as.matrix(hasil2)))
+      
+    
+      
+      perusahaan = rep(company[k],  length(  putar_data[,1]   )    )
+
+     
+      putar_data = data.frame(putar_data, perusahaan)
+      
+      Waktu = rownames(putar_data)
+      
+      
+      
+      
+      Sector = rep(sektor,  length(  putar_data[,1]   )    )
+      Board = rep(papan,  length(  putar_data[,1]   )    )
+      
+      
+      
+      putar_data = data.frame(putar_data, Waktu, sektor, Board)
+      
+        colnames(putar_data) = c(nama, "Perusahaan", "Waktu", "Sektor", "Papan")
+
+
+        
+        if(k == 1)
+        {
+          simpan_dframe = putar_data
+        }
+        
+        if(k > 1)
+        {
+          simpan_dframe = rbind(simpan_dframe, putar_data)
+        }
+
+
+}
+
+
+
+rownames(simpan_dframe) = NULL
+
+simpan_dframe
+
+```
+
+
+
+
+```{r}
+
+simpan_dframe2 = simpan_dframe
+
+
+  X = simpan_dframe2
+      
+      X = as.data.frame(X)
+      
+      wb <- openxlsx::createWorkbook()
+      
+      
+      hs1 <- openxlsx::createStyle(fgFill = "#DCE6F1", halign = "CENTER", textDecoration = "italic",
+                                   border = "Bottom")
+      
+      
+      hs2 <- openxlsx::createStyle(fontColour = "#ffffff", fgFill = "#4F80BD",
+                                   halign = "center", valign = "center", textDecoration = "bold",
+                                   border = "TopBottomLeftRight")
+      
+      openxlsx::addWorksheet(wb, "Result", gridLines = TRUE)
+      
+      openxlsx::writeDataTable(wb, "Result", X, rowNames = TRUE, startRow = 2, startCol = 2, tableStyle = "TableStyleMedium21")
+      
+      
+      
+      openxlsx::openXL(wb)
+      
+    
+    
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########Cash Flow
+
+
+
+
+```{r}
+
+ get_var = c("Cash Flows from Used in Operating Activities Direct","Investing Cash Flow","Financing Cash Flow","Capital Expenditure","Free Cash Flow")
+
+sektor = c("Properties & Real Estate")
+papan = c("Development")
+
+```
+
+
+
+Nama perusahaan financials sektor papan utama
+
+
+  
+
+```{r}
+
+company = c(
+
+
+"AMAN.JK",
+"ASPI.JK",
+"ATAP.JK",
+"BBSS.JK",
+"BCIP.JK",
+"BKDP.JK",
+"CBPE.JK",
+"CSIS.JK",
+"DUTI.JK",
+"EMDE.JK",
+"FMII.JK",
+"GRIA.JK",
+"HOMI.JK",
+"INDO.JK",
+"INPP.JK",
+"KOCI.JK",
+"LPLI.JK",
+"MKPI.JK",
+"MPRO.JK",
+"MTSM.JK",
+"NIRO.JK",
+"OMRE.JK",
+"POLI.JK",
+"POLL.JK",
+"PURI.JK",
+"RISE.JK",
+"SAGE.JK",
+"SATU.JK",
+"SMDM.JK",
+"SWID.JK",
+"UANG.JK",
+"URBN.JK",
+"VAST.JK"
+
+
+
+
+)
+
+
+simpan_dframe = 0
+
+
+for(k in 1 :  length(company) )
+{
+      
+  
+  cat(sprintf("%s\n\n", company[k]))    
+  
+  
+      alamat <- paste0('https://finance.yahoo.com/quote/',company[k],'/cash-flow?p=',company[k])
+      
+      page <- read_html(alamat)
+      nodes <- page %>%html_nodes(".fi-row")
+      df = NULL
+      
+      for(i in nodes){
+        r <- list(i %>%html_nodes("[title],[data-test='fin-col']")%>%html_text())
+        df <- rbind(df,as.data.frame(matrix(r[[1]], ncol = length(r[[1]]), byrow = TRUE), stringsAsFactors = FALSE))
+      }
+      
+      matches <- str_match_all(page%>%html_node('#Col1-3-Financials-Proxy')%>%html_text(),'\t{1,2}/\t{1,2}/\t{4}')  
+      headers <- c('Breakdown','TTM', matches[[1]][,1]) 
+    
+      
+      
+        if(length(df) < 5)
+      {
+        print(length(df))
+        cat(sprintf("%s Tidak Dapat Discraping, Karena Data Tidak Lengkap\n\n", company[k]))
+        next
+      }
+
+ 
+      print(length(df))
+      cat(sprintf("%s Dapat Discraping, Karena Data Lengkap\n\n", company[k]))
+      
+      
+      
+     names(df) <- headers
+      
+      hasil = df
+
+#############
+      
+      all_var = hasil[,1]
+      indeks = all_var %in% get_var
+      
+      indeks = which(indeks == TRUE )
+      
+      
+      hasil2 = hasil[c(indeks),]
+      
+      
+     
+      
+      nama = get_var
+      
+     
+      
+      hasil2 = hasil2[-c(1)]
+      
+      
+       colnames(hasil2) = c("TTM","2022","2021","2020")
+      
+      
+      putar_data <- as.data.frame(t(as.matrix(hasil2)))
+      
+    
+      
+      perusahaan = rep(company[k],  length(  putar_data[,1]   )    )
+
+     
+      putar_data = data.frame(putar_data, perusahaan)
+      
+      Waktu = rownames(putar_data)
+      
+      
+      
+      
+      Sector = rep(sektor,  length(  putar_data[,1]   )    )
+      Board = rep(papan,  length(  putar_data[,1]   )    )
+      
+      
+      
+      putar_data = data.frame(putar_data, Waktu, sektor, Board)
+      
+        colnames(putar_data) = c(nama, "Perusahaan", "Waktu", "Sektor", "Papan")
+
+
+        
+        if(k == 1)
+        {
+          simpan_dframe = putar_data
+        }
+        
+        if(k > 1)
+        {
+          simpan_dframe = rbind(simpan_dframe, putar_data)
+        }
+
+
+}
+
+
+
+rownames(simpan_dframe) = NULL
+
+simpan_dframe
+
+```
+
+
+
+
+
+
+
+#Menghapus TTM
+```{r}
+
+simpan_dframe2 = simpan_dframe
+
+TTM <- simpan_dframe2[,c("Waktu")]
+
+TTM <- as.vector(TTM)
+
+indeks <- TTM %in% c("2020","2021","2022")
+
+
+indeks = which(indeks == TRUE)
+
+simpan_dframe2 = simpan_dframe2[c(indeks),]
+
+simpan_dframe2
+```
+
+
+
+
+
+```{r}
+
+  X = simpan_dframe2
+      
+      X = as.data.frame(X)
+      
+      wb <- openxlsx::createWorkbook()
+      
+      
+      hs1 <- openxlsx::createStyle(fgFill = "#DCE6F1", halign = "CENTER", textDecoration = "italic",
+                                   border = "Bottom")
+      
+      
+      hs2 <- openxlsx::createStyle(fontColour = "#ffffff", fgFill = "#4F80BD",
+                                   halign = "center", valign = "center", textDecoration = "bold",
+                                   border = "TopBottomLeftRight")
+      
+      openxlsx::addWorksheet(wb, "Result", gridLines = TRUE)
+      
+      openxlsx::writeDataTable(wb, "Result", X, rowNames = TRUE, startRow = 2, startCol = 2, tableStyle = "TableStyleMedium21")
+      
+      
+      
+      openxlsx::openXL(wb)
+      
+    
+    
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
